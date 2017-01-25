@@ -1,6 +1,121 @@
 #!/usr/bin/env python3
+import threading, struct, time
 
-SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller","Sony Computer Entertainment Wireless Controller","Logitech Gamepad F310"]
+SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller"]
+EVENT_FORMAT = "llHHI"
+EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
+DEBUG_MODE = True
+MAX = 4294967296
+
+class joystick():
+	def __init__(self, path, layout = None): #Layout will be used to specify a button mapping (eg, Nintendo or Xbox ABXY)
+		self._buffer = { "B":False, "A":False, "X":False, "Y":False, "LeftBumper":False, "RightBumper":False, "LeftTrigger":False, "RightTrigger":False, "Select":False, "Start":False, "Home":False, "LeftStickButton":False, "RightStickButton":False, "Up":False, "Down":False, "Left":False, "Right":False, "LeftX":0, "LeftY":0, "RightX":0, "RightY":0}
+		self.maxAnalog = 1024
+		self._pressed = {}
+		self.inputFile = open(path, "rb")
+		self.updateThread = threading.Thread(target=self._read, daemon=True)
+		self.updateThread.start()
+	def poll(self):
+		self._pressed = self._buffer
+	def getA(self):
+		return self._pressed["A"]
+	def getB(self):
+		return self._pressed["B"]
+	def getX(self):
+		return self._pressed["X"]
+	def getY(self):
+		return self._pressed["Y"]
+	def getUp(self):
+		return self._pressed["Up"]
+	def getDown(self):
+		return self._pressed["Down"]
+	def getLeft(self):
+		return self._pressed["Left"]
+	def getRight(self):
+		return self._pressed["Right"]
+	def getSelect(self):
+		return self._pressed["Select"]
+	def getHome(self):
+		return self._pressed["Home"]
+	def getStart(self):
+		return self._pressed["Start"]
+	def getLeftTrigger(self):
+		return self._pressed["LeftTrigger"]
+	def getRightTrigger(self):
+		return self._pressed["RightTrigger"]
+	def getLeftBumper(self):
+		return self._pressed["LeftBumper"]
+	def getRightBumper(self):
+		return self._pressed["RightBumper"]
+	def getLeftX(self):
+		return self._pressed["LeftX"]
+	def getLeftY(self):
+		return self._pressed["LeftY"]
+	def getRightX(self):
+		return self._pressed["RightX"]
+	def getRightY(self):
+		return self._pressed["RightY"]
+	def _read(self):
+		while(True):
+			(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
+			if(hasInfo):
+				if(key == 304):
+					self._buffer["B"] = bool(value)
+				elif(key == 305):
+					self._buffer["A"] = bool(value)
+				elif(key == 307):
+					self._buffer["X"] = bool(value)
+				elif(key == 308):
+					self._buffer["Y"] = bool(value)
+				elif(key == 310):
+					self._buffer["LeftBumper"] = bool(value)
+				elif(key == 311):
+					self._buffer["RightBumper"] = bool(value)
+				elif(key == 312):
+					self._buffer["LeftTrigger"] = float(value)
+				elif(key == 313):
+					self._buffer["RightTrigger"] = float(value)
+				elif(key == 314):
+					self._buffer["Select"] = bool(value)
+				elif(key == 315):
+					self._buffer["Start"] = bool(value)
+				elif(key == 316):
+					self._buffer["Home"] = bool(value)
+				elif(key == 317):
+					self._buffer["LeftStickButton"] = bool(value)
+				elif(key == 318):
+					self._buffer["RightStickButton"] = bool(value)
+				elif(key == 544):
+					self._buffer["Up"] = bool(value)
+				elif(key == 545):
+					self._buffer["Down"] = bool(value)
+				elif(key == 546):
+					self._buffer["Left"] = bool(value)
+				elif(key == 547):
+					self._buffer["Right"] = bool(value)
+				elif(key == 0):
+					self._buffer["LeftX"] = adjust(signInt(value), self.maxAnalog)
+				elif(key == 1):
+					self._buffer["LeftY"] = -adjust(signInt(value), self.maxAnalog)
+				elif(key == 3):
+					self._buffer["RightX"] = adjust(signInt(value), self.maxAnalog)
+				elif(key == 4):
+					self._buffer["RightY"] = -adjust(signInt(value), self.maxAnalog)
+				elif(DEBUG_MODE):
+					print(str(key) + ":" + str(value))
+def signInt(int):
+	if(int > MAX/2):
+		return int-MAX
+	else:
+		return int
+
+def adjust(val, max):
+	val = float(val)/max
+	if(val > 1.0):
+		val = 1.0
+	elif(val<-1.0):
+		val = -1.0
+	return val
 
 def getDevices():
 	controllers = {}
@@ -22,3 +137,44 @@ def getDevices():
 						path = "/dev/input/" + handler
 						controllers[path] = name
 	return controllers
+
+
+def promptForController(connected = []):
+	controllers = getDevices()
+	available = []
+	i = 1
+	for controller in controllers:
+		if(controller not in connected):
+			available.append(controller)
+			print("["+ str(i) + "] " + controllers[controller] + " on " + controller)
+			i+=1
+	if(available == []):
+		print("No available controllers")
+		return None, connected
+	selection = 0
+	while selection == 0:
+		userString = input()
+		try:
+			selection = int(userString)
+			if(not (0 < selection <= i-1)):
+				print(str(selection) + " is not an available controller")
+				selection = 0
+		except ValueError:
+			print("\"" + userString + "\" is not an integer")
+	path = available[selection-1]
+	connected.append(path)
+	return path, connected
+
+def getAController():
+	devices = getDevices()
+	if(len(devices) == 0):
+		print("No controllers connected. Connect a controller")
+		while True:
+			devices = getDevices()
+			if(len(devices) != 0):
+				break
+			time.sleep(1)
+	if(len(devices) == 1):
+		return list(devices.keys())[0]
+	else:
+		return promptForController()[0]

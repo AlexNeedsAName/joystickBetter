@@ -2,7 +2,9 @@ This is a library for abstracting away joystick communication on Linux. There's 
 
 TODO:
 - [x] Scan for avalilable controllers
-- [ ] Support for Wii U Pro Controller
+- [x] Function to prompt the user to select their controller
+- [x] Ability to easily keep track of already bound controllers
+- [x] Support for Wii U Pro Controller
 - [ ] Support for Logitech F310
 - [ ] Support for PS4 Controller
 - [ ] Support for Xbox Controllers
