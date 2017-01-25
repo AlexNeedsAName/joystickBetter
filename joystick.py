@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import threading, struct, time
 
-SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller", "Logitech Gamepad F310"]
+SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller", "Nintendo Wii Remote", "Logitech Gamepad F310"]
 EVENT_FORMAT = "llHHI"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
 DEBUG_MODE = False
 MAX = 4294967296
 
 class joystick():
-	def __init__(self, path, layout = None): #Layout will be used to specify a button mapping rather than the button names (eg, Nintendo ABXY or Xbox ABXY)
+	def __init__(self, path, layout = None, getRaw = False): #Layout will be used to specify a button mapping (eg, Nintendo or Xbox ABXY)
 		self.name = getDeviceName(path[11:])
 		self._buffer = { "B":False, "A":False, "X":False, "Y":False, "LeftBumper":False, "RightBumper":False, "LeftTrigger":0.0, "RightTrigger":0.0, "Select":False, "Start":False, "Home":False, "LeftStickButton":False, "RightStickButton":False, "Up":False, "Down":False, "Left":False, "Right":False, "LeftX":0, "LeftY":0, "RightX":0, "RightY":0}
 		if(self.name == "Nintendo Wii Remote Pro Controller"):
@@ -20,8 +20,12 @@ class joystick():
 		self.triggerMax = 255
 		self._pressed = {}
 		self.inputFile = open(path, "rb")
-		self.updateThread = threading.Thread(target=self._read, daemon=True)
+		if(not getRaw):
+			self.updateThread = threading.Thread(target=self._read, daemon=True)
+		else:
+			self.updateThread = threading.Thread(target=self._readRaw, daemon = True)
 		self.updateThread.start()
+
 	def poll(self):
 		self._pressed = self._buffer
 	def getA(self):
@@ -68,6 +72,12 @@ class joystick():
 		return self._pressed["RightStickButton"]
 	def getName(self):
 		return self.name
+	def _readRaw(self):
+		while(True):
+			(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
+			if(hasInfo):
+				print(str(key) + ":" + str(value))
+
 	def _read(self):
 		while(True):
 			(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
@@ -82,9 +92,9 @@ class joystick():
 						self._buffer["A"] = bool(value)
 					else:
 						self._buffer["B"] = bool(value)
-				elif(key == 307):
+				elif(key == 307 or key == 257):
 					self._buffer["X"] = bool(value)
-				elif(key == 308):
+				elif(key == 308 or key == 258):
 					self._buffer["Y"] = bool(value)
 				elif(key == 310):
 					self._buffer["LeftBumper"] = bool(value)
@@ -94,9 +104,9 @@ class joystick():
 					self._buffer["LeftTrigger"] = float(value)
 				elif(key == 313):
 					self._buffer["RightTrigger"] = float(value)
-				elif(key == 314):
+				elif(key == 314 or key == 412):
 					self._buffer["Select"] = bool(value)
-				elif(key == 315):
+				elif(key == 315 or key == 407):
 					self._buffer["Start"] = bool(value)
 				elif(key == 316):
 					self._buffer["Home"] = bool(value)
@@ -104,13 +114,13 @@ class joystick():
 					self._buffer["LeftStickButton"] = bool(value)
 				elif(key == 318):
 					self._buffer["RightStickButton"] = bool(value)
-				elif(key == 544):
+				elif(key == 544 or key == 103):
 					self._buffer["Up"] = bool(value)
-				elif(key == 545):
+				elif(key == 545 or key == 108):
 					self._buffer["Down"] = bool(value)
-				elif(key == 546):
+				elif(key == 546 or key == 105):
 					self._buffer["Left"] = bool(value)
-				elif(key == 547):
+				elif(key == 547 or key == 106):
 					self._buffer["Right"] = bool(value)
 				elif(key == 0):
 					self._buffer["LeftX"] = adjust(signInt(value), self.joystickMax)
@@ -165,7 +175,7 @@ def adjust(val, max):
 		val = -1.0
 	return val
 
-def getDevices():
+def getDevices(includeUnsupported=False):
 	controllers = {}
 	with open("/proc/bus/input/devices", "rb") as deviceFile:
 		devices = str(deviceFile.read()).split("\\n\\n")
@@ -178,7 +188,7 @@ def getDevices():
 					name = line[9:-1]
 				elif("H: Handlers=" in line):
 					handlers = line[12:-1].split(" ")
-			if(name in SUPPORTED_CONTROLLERS):
+			if(name in SUPPORTED_CONTROLLERS or (includeUnsupported is True and handlers is not None)):
 				num = None
 				for handler in handlers:
 					if("event" in handler):
@@ -199,8 +209,8 @@ def getDeviceName(handler):
 				return name
 	return None
 
-def promptForController(connected = []):
-	controllers = getDevices()
+def promptForController(connected = [], includeUnsupported=False):
+	controllers = getDevices(includeUnsupported=includeUnsupported)
 	available = []
 	i = 1
 	for controller in controllers:
@@ -238,3 +248,8 @@ def getAController():
 		return list(devices.keys())[0]
 	else:
 		return promptForController()[0]
+
+if(DEBUG_MODE and __name__ == "__main__"):
+	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
+	input("Press enter to quit.\n")
+
