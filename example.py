@@ -2,6 +2,8 @@
 import joystick
 import time
 
+print(joystick.getDevices())
+
 js = joystick.joystick(joystick.getAController())
 while True:
 	js.poll() #Grab to the most recent values
@@ -10,6 +12,10 @@ while True:
 	print("LY: " + str(js.getLeftY()))
 	print("RX: " + str(js.getRightX()))
 	print("RY: " + str(js.getRightY()))
+
+	print("")
+	print("Left Stick Button:  " + str(js.getLeftStickButton()))
+	print("Right Stick Button: " + str(js.getRightStickButton()))
 
 	print("")
 	print("A: " + str(js.getA()))
@@ -34,4 +40,6 @@ while True:
 	print("Left Trigger:  " + str(js.getLeftTrigger()))
 	print("Right Trigger: " + str(js.getRightTrigger()))
 
+	print("")
+	print(js.getName())
 	time.sleep(.1)

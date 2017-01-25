@@ -5,7 +5,8 @@ TODO:
 - [x] Function to prompt the user to select their controller
 - [x] Ability to easily keep track of already bound controllers
 - [x] Support for Wii U Pro Controller
-- [ ] Support for Logitech F310
+- [x] Support for Logitech F310
+- [x] Support for Wii Remote and Accessories
 - [ ] Support for PS4 Controller
 - [ ] Support for Xbox Controllers
 - [ ] Ability to switch between Nintendo button layout, Xbox button layout, and PlayStation symbols

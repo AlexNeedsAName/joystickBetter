@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 import threading, struct, time
 
-SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller"]
+SUPPORTED_CONTROLLERS = ["Nintendo Wii Remote Pro Controller", "Logitech Gamepad F310"]
 EVENT_FORMAT = "llHHI"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
-DEBUG_MODE = True
+DEBUG_MODE = False
 MAX = 4294967296
 
 class joystick():
-	def __init__(self, path, layout = None): #Layout will be used to specify a button mapping (eg, Nintendo or Xbox ABXY)
-		self._buffer = { "B":False, "A":False, "X":False, "Y":False, "LeftBumper":False, "RightBumper":False, "LeftTrigger":False, "RightTrigger":False, "Select":False, "Start":False, "Home":False, "LeftStickButton":False, "RightStickButton":False, "Up":False, "Down":False, "Left":False, "Right":False, "LeftX":0, "LeftY":0, "RightX":0, "RightY":0}
-		self.maxAnalog = 1024
+	def __init__(self, path, layout = None): #Layout will be used to specify a button mapping rather than the button names (eg, Nintendo ABXY or Xbox ABXY)
+		self.name = getDeviceName(path[11:])
+		self._buffer = { "B":False, "A":False, "X":False, "Y":False, "LeftBumper":False, "RightBumper":False, "LeftTrigger":0.0, "RightTrigger":0.0, "Select":False, "Start":False, "Home":False, "LeftStickButton":False, "RightStickButton":False, "Up":False, "Down":False, "Left":False, "Right":False, "LeftX":0, "LeftY":0, "RightX":0, "RightY":0}
+		if(self.name == "Nintendo Wii Remote Pro Controller"):
+			self.joystickMax = 1024
+			self.ABSwitch = True
+		else:
+			self.joystickMax = 32768
+			self.ABSwitch = False
+		self.triggerMax = 255
 		self._pressed = {}
 		self.inputFile = open(path, "rb")
 		self.updateThread = threading.Thread(target=self._read, daemon=True)
@@ -55,14 +62,26 @@ class joystick():
 		return self._pressed["RightX"]
 	def getRightY(self):
 		return self._pressed["RightY"]
+	def getLeftStickButton(self):
+		return self._pressed["LeftStickButton"]
+	def getRightStickButton(self):
+		return self._pressed["RightStickButton"]
+	def getName(self):
+		return self.name
 	def _read(self):
 		while(True):
 			(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
 			if(hasInfo):
 				if(key == 304):
-					self._buffer["B"] = bool(value)
+					if(self.ABSwitch):
+						self._buffer["B"] = bool(value)
+					else:
+						self._buffer["A"] = bool(value)
 				elif(key == 305):
-					self._buffer["A"] = bool(value)
+					if(self.ABSwitch):
+						self._buffer["A"] = bool(value)
+					else:
+						self._buffer["B"] = bool(value)
 				elif(key == 307):
 					self._buffer["X"] = bool(value)
 				elif(key == 308):
@@ -94,15 +113,42 @@ class joystick():
 				elif(key == 547):
 					self._buffer["Right"] = bool(value)
 				elif(key == 0):
-					self._buffer["LeftX"] = adjust(signInt(value), self.maxAnalog)
+					self._buffer["LeftX"] = adjust(signInt(value), self.joystickMax)
 				elif(key == 1):
-					self._buffer["LeftY"] = -adjust(signInt(value), self.maxAnalog)
+					self._buffer["LeftY"] = -adjust(signInt(value), self.joystickMax)
+				elif(key == 2):
+					self._buffer["LeftTrigger"] = adjust(signInt(value), self.triggerMax)
 				elif(key == 3):
-					self._buffer["RightX"] = adjust(signInt(value), self.maxAnalog)
+					self._buffer["RightX"] = adjust(signInt(value), self.joystickMax)
 				elif(key == 4):
-					self._buffer["RightY"] = -adjust(signInt(value), self.maxAnalog)
+					self._buffer["RightY"] = -adjust(signInt(value), self.joystickMax)
+				elif(key == 5):
+					self._buffer["RightTrigger"] = adjust(signInt(value), self.triggerMax)
+				elif(key == 16):
+					val = signInt(value)
+					if(val == 0):
+						self._buffer["Left"] = False
+						self._buffer["Right"] = False
+					elif(val == 1):
+						self._buffer["Left"] = False
+						self._buffer["Right"] = True
+					elif(val == -1):
+						self._buffer["Left"] = True
+						self._buffer["Right"] = False
+				elif(key == 17):
+					val = signInt(value)
+					if(val == 0):
+						self._buffer["Up"] = False
+						self._buffer["Down"] = False
+					elif(val == 1):
+						self._buffer["Up"] = False
+						self._buffer["Down"] = True
+					elif(val == -1):
+						self._buffer["Up"] = True
+						self._buffer["Down"] = False
 				elif(DEBUG_MODE):
 					print(str(key) + ":" + str(value))
+
 def signInt(int):
 	if(int > MAX/2):
 		return int-MAX
@@ -110,6 +156,8 @@ def signInt(int):
 		return int
 
 def adjust(val, max):
+	if(val > 0):
+		max-=1
 	val = float(val)/max
 	if(val > 1.0):
 		val = 1.0
@@ -138,6 +186,18 @@ def getDevices():
 						controllers[path] = name
 	return controllers
 
+def getDeviceName(handler):
+	with open("/proc/bus/input/devices", "rb") as deviceFile:
+		devices = str(deviceFile.read()).split("\\n\\n")
+		for device in devices:
+			if(handler in device):
+				name = None
+				lines = device.split("\\n")
+				for line in lines:
+					if("N: Name=" in line):
+						name = line[9:-1]
+				return name
+	return None
 
 def promptForController(connected = []):
 	controllers = getDevices()
