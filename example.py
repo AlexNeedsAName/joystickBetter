@@ -2,7 +2,7 @@
 import joystick
 import time
 
-print(joystick.getDevices())
+#print(joystick.getDevices())
 
 js = joystick.joystick(joystick.getAController())
 while True:
@@ -23,6 +23,11 @@ while True:
 	print("X: " + str(js.getX()))
 	print("Y: " + str(js.getY()))
 
+	if("Nunchuk" in js.getName()):
+		print("")
+		print("C: " + str(js.getC()))
+		print("Z: " + str(js.getZ()))
+
 	print("")
 	print("Up:    " + str(js.getUp()))
 	print("Down:  " + str(js.getDown()))
@@ -42,4 +47,6 @@ while True:
 
 	print("")
 	print(js.getName())
+	if(not js.isConnected()):
+		print("Disconnected")
 	time.sleep(.1)
