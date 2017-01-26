@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-import threading, struct, time
-import time
-SUPPORTED_CONTROLLERS = ["Nintendo Wii", "Logitech Gamepad F310"]
+import threading, struct, time, yaml, sys
+
+DEBUG_MODE = False
+
 EVENT_FORMAT = "llHHI"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
-DEBUG_MODE = True
 MAX = 4294967296
+BUTTON = 1
+AXIS = 3
 
 class joystick():
-	_buffer = { "B":False, "A":False, "X":False, "Y":False, "LeftBumper":False, "RightBumper":False, "LeftTrigger":0.0, "RightTrigger":0.0, "Select":False, "Start":False, "Home":False, "LeftStickButton":False, "RightStickButton":False, "Up":False, "Down":False, "Left":False, "Right":False, "LeftX":0, "LeftY":0, "RightX":0, "RightY":0, "C":False, "Z":False}
+	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False}
 	_pressed = _buffer
 	ABSwitch = False
 	joystickMax = 32768
@@ -16,11 +18,15 @@ class joystick():
 
 	connected = False
 
+	updateThread = None
+
 	def __init__(self, path, layout = None, getRaw = False): #Layout will be used to specify a button mapping (eg, Nintendo or Xbox ABXY)
 		#Save the paramaters for later use
 		self.path = path
 		self.handler = self.path[11:]
 		self.name = getDeviceName(self.handler)
+
+		self.bindings, self.settings = self.getBindings(self.name)
 
 		#Change a few settings for specific controllers
 		if(self.name == "Nintendo Wii Remote Pro Controller"):
@@ -31,7 +37,8 @@ class joystick():
 		elif(self.name == "Nintendo Wii Remote Nunchuk"):
 			self.joystickMax = 64
 
-		self.waitForConnection()
+		if(self.waitForConnection()):
+			raise PermissionError
 
 		#Run normal thread or just output raw values from the handler
 		if(getRaw):
@@ -41,10 +48,84 @@ class joystick():
 
 		self.updateThread.start()
 
+	def getBindings(self, name):
+		with open("bindings.yaml", 'rb') as bindingsFile:
+			allBindings = yaml.load(bindingsFile)
+			#Load the default bindings and settings
+			bindings = allBindings["Default"]["Bindings"]
+			settings = allBindings["Default"]["Settings"]
+
+			#Merge the default bindings with the bindings for this controller
+			#If there are conflicts, the ones for the controller wins
+			try:
+				bindings.update(allBindings[name]["Bindings"])
+			except KeyError:
+				pass
+			try:
+				settings.update(allBindings[name]["Settings"])
+			except KeyError:
+				pass
+
+			return (bindings, settings)
+
+
 	#Save the current value from the buffer to the list used for output.
 	#This way the value of a button won't change until the caller is ready
 	def poll(self):
 		self._pressed = self._buffer
+
+	def waitForConnection(self):
+		if(self.connected == True):
+			return 0
+		else:
+			while True:
+				try:
+					self.inputFile = open(self.path, "rb")
+					self.connected = True
+					return 0
+				except PermissionError:
+					return 1
+				except OSError:
+					self.connected = False
+					time.sleep(.1)
+
+	def _readRaw(self):
+		while(True):
+			try:
+				(time, idkWhatThisIs, type, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
+			except OSError:
+				self.connected = False
+				self.waitForConnection()
+			if(type != 0):
+				try:
+					print(str(key) + " (" + self.bindings[key] + "):" + str(value))
+				except KeyError:
+					print(str(key) + ":" + str(value))
+
+	def _read(self):
+		while(True):
+			try:
+				(time, idkWhatThisIs, type, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
+			except OSError:
+				self.connected = False
+				self.waitForConnection()
+			try:
+				keyName = self.bindings[key]
+				if(type == BUTTON):
+					self._buffer[keyName] = bool(value)
+
+				elif(type == AXIS):
+					value = signInt(value)
+					max = self.settings["Analog Max"][keyName]
+					if(self.settings["Inverted Y"] and "Y" in keyName):
+						self._buffer[keyName] = -adjust(value, max)
+					else:
+						self._buffer[keyName] = adjust(value, max)
+
+			except KeyError:
+				if(DEBUG_MODE):
+					print("Unbound key: " + str(key))
+				pass
 
 	#All the getter functions for inputs, settings, status, etc
 	def isConnected(self):
@@ -76,145 +157,27 @@ class joystick():
 	def getStart(self):
 		return self._pressed["Start"]
 	def getLeftTrigger(self):
-		return self._pressed["LeftTrigger"]
+		return self._pressed["Left Trigger"]
 	def getRightTrigger(self):
-		return self._pressed["RightTrigger"]
+		return self._pressed["Right Trigger"]
 	def getLeftBumper(self):
-		return self._pressed["LeftBumper"]
+		return self._pressed["L"]
 	def getRightBumper(self):
-		return self._pressed["RightBumper"]
+		return self._pressed["R"]
 	def getLeftX(self):
-		return self._pressed["LeftX"]
+		return self._pressed["Left X"]
 	def getLeftY(self):
-		return self._pressed["LeftY"]
+		return self._pressed["Left Y"]
 	def getRightX(self):
-		return self._pressed["RightX"]
+		return self._pressed["Right X"]
 	def getRightY(self):
-		return self._pressed["RightY"]
+		return self._pressed["Right Y"]
 	def getLeftStickButton(self):
-		return self._pressed["LeftStickButton"]
+		return self._pressed["Left Stick Button"]
 	def getRightStickButton(self):
-		return self._pressed["RightStickButton"]
+		return self._pressed["Right Stick Button"]
 	def getName(self):
 		return self.name
-	def _readRaw(self):
-		while(True):
-			(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
-			if(hasInfo):
-				print(str(key) + ":" + str(value))
-	def waitForConnection(self):
-		if(self.connected == True):
-			return 0
-		else:
-			while True:
-				try:
-					self.inputFile = open(self.path, "rb")
-					self.connected = True
-					return 0
-				except OSError:
-					self.connected = False
-					time.sleep(.1)
-
-	def _read(self):
-		while(True):
-			try:
-				(time, idk, hasInfo, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
-			except OSError:
-				self.connected = False
-				self.waitForConnection()
-
-			if(hasInfo):
-				if(key == 304 and self.ABSwitch == True):
-					self._buffer["B"] = bool(value)
-				elif(key == 304):
-					self._buffer["A"] = bool(value)
-				elif(key == 305 and self.ABSwitch == True):
-					self._buffer["A"] = bool(value)
-				elif(key == 305):
-					self._buffer["B"] = bool(value)
-				elif(key == 306):
-					self._buffer["C"] = bool(value)
-				elif(key == 307 or key == 257):
-					self._buffer["X"] = bool(value)
-				elif(key == 308 or key == 258):
-					self._buffer["Y"] = bool(value)
-				elif(key == 309):
-					self._buffer["Z"] = bool(value)
-				elif(key == 310):
-					self._buffer["LeftBumper"] = bool(value)
-				elif(key == 311):
-					self._buffer["RightBumper"] = bool(value)
-				elif(key == 312):
-					self._buffer["LeftTrigger"] = float(value)
-				elif(key == 313):
-					self._buffer["RightTrigger"] = float(value)
-				elif(key == 314 or key == 412):
-					self._buffer["Select"] = bool(value)
-				elif(key == 315 or key == 407):
-					self._buffer["Start"] = bool(value)
-				elif(key == 316):
-					self._buffer["Home"] = bool(value)
-				elif(key == 317):
-					self._buffer["LeftStickButton"] = bool(value)
-				elif(key == 318):
-					self._buffer["RightStickButton"] = bool(value)
-				elif(key == 544 or key == 103):
-					self._buffer["Up"] = bool(value)
-				elif(key == 545 or key == 108):
-					self._buffer["Down"] = bool(value)
-				elif(key == 546 or key == 105):
-					self._buffer["Left"] = bool(value)
-				elif(key == 547 or key == 106):
-					self._buffer["Right"] = bool(value)
-				elif(key == 0 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["LeftX"] = adjust(signInt(value), self.joystickMax)
-				elif(key == 1 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["LeftY"] = -adjust(signInt(value), self.joystickMax)
-				elif(key == 2 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["LeftTrigger"] = adjust(signInt(value), self.triggerMax)
-				elif(key == 3 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["RightX"] = adjust(signInt(value), self.joystickMax)
-				elif(key == 4 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["RightY"] = -adjust(signInt(value), self.joystickMax)
-				elif(key == 5 and self.name != "Nintendo Wii Remote Nunchuk"):
-					self._buffer["RightTrigger"] = adjust(signInt(value), self.triggerMax)
-				elif(key == 16 and self.name == "Nintendo Wii Remote Nunchuk"):
-					self._buffer["LeftX"] = adjust(signInt(value), self.joystickMax)
-				elif(key == 17 and self.name == "Nintendo Wii Remote Nunchuk"):
-					self._buffer["LeftY"] = -adjust(signInt(value), self.joystickMax)
-				elif(key == 16):
-					val = signInt(value)
-					if(val == 0):
-						self._buffer["Left"] = False
-						self._buffer["Right"] = False
-					elif(val == 1):
-						self._buffer["Left"] = False
-						self._buffer["Right"] = True
-					elif(val == -1):
-						self._buffer["Left"] = True
-						self._buffer["Right"] = False
-				elif(key == 17):
-					val = signInt(value)
-					if(val == 0):
-						self._buffer["Up"] = False
-						self._buffer["Down"] = False
-					elif(val == 1):
-						self._buffer["Up"] = False
-						self._buffer["Down"] = True
-					elif(val == -1):
-						self._buffer["Up"] = True
-						self._buffer["Down"] = False
-				elif(self.name == "Nintendo Wii Remote Classic Controller"):
-					if(key == 18):
-						self._buffer["LeftX"] = signInt(value)
-					elif(key == 19):
-						self._buffer["LeftY"] = -signInt(value)
-					elif(key == 20):
-						self._buffer["RightX"] = signInt(value)
-					elif(key == 21):
-						self._buffer["RightY"] = -signInt(value)
-				elif(DEBUG_MODE and key not in [3,4,5]):
-					print(str(key) + ":" + str(value))
 
 def signInt(int):
 	if(int > MAX/2):
@@ -245,7 +208,7 @@ def getDevices(includeUnsupported=False):
 					name = line[9:-1]
 				elif("H: Handlers=" in line):
 					handlers = line[12:-1].split(" ")
-			if(name in SUPPORTED_CONTROLLERS or (includeUnsupported is True and handlers is not None) or (name is not None and "Wii" in name)):
+			if(name in SUPPORTED_CONTROLLERS or (includeUnsupported is True and handlers is not None)):
 				num = None
 				for handler in handlers:
 					if("event" in handler):
@@ -306,7 +269,17 @@ def getAController():
 	else:
 		return promptForController()[0]
 
+def getSupportedControllers():
+	controllers = []
+	with open("bindings.yaml", 'rb') as bindingsFile:
+		allBindings = yaml.load(bindingsFile)
+		for binding in allBindings:
+			if(binding != "Default"):
+				controllers.append(binding)
+	return controllers
+
+SUPPORTED_CONTROLLERS = getSupportedControllers()
 if(DEBUG_MODE and __name__ == "__main__"):
-	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
+	js = joystick(promptForController(includeUnsupported = False)[0], getRaw = True)
 	input("Press enter to quit.\n")
 
