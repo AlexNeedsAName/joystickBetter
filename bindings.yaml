@@ -34,6 +34,8 @@ Default:
       Right Trigger: 255
 
     Inverted Y: True
+    D-Pad is Axis: False
+    Triggers are Buttons: False
 
 Nintendo Wii Remote Pro Controller:
   Bindings:
@@ -51,6 +53,7 @@ Nintendo Wii Remote Pro Controller:
       Left Y:  1024
       Right X: 1024
       Right Y: 1024
+    Triggers are Buttons: True
 
 Nintendo Wii Remote Nunchuk:
   Bindings:
@@ -85,7 +88,7 @@ Nintendo Wii Remote:
 
 Logitech Gamepad F310:
   Bindings:
-    16:  "Up"
-    17:  "Down"
-    18:  "Left"
-    19:  "Right"
+    16:  "DPad X"
+    17:  "DPad Y"
+  Settings:
+    D-Pad is Axis: True

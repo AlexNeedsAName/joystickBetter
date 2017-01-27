@@ -9,12 +9,15 @@ MAX = 4294967296
 BUTTON = 1
 AXIS = 3
 
+_path = __file__.split("/")
+_path.pop(len(_path)-1)
+_path = "/".join(_path) + "/"
+
 class joystick():
 	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False}
-	_pressed = _buffer
+	_down = _buffer.copy()
+	_pressed = _buffer.copy()
 	ABSwitch = False
-	joystickMax = 32768
-	triggerMax = 255
 
 	connected = False
 
@@ -28,15 +31,6 @@ class joystick():
 
 		self.bindings, self.settings = self.getBindings(self.name)
 
-		#Change a few settings for specific controllers
-		if(self.name == "Nintendo Wii Remote Pro Controller"):
-			self.joystickMax = 1024
-			self.ABSwitch = True
-		elif(self.name == "Nintendo Wii Remote Classic Controller"):
-			self.joystickMax = 32
-		elif(self.name == "Nintendo Wii Remote Nunchuk"):
-			self.joystickMax = 64
-
 		if(self.waitForConnection()):
 			raise PermissionError
 
@@ -49,7 +43,7 @@ class joystick():
 		self.updateThread.start()
 
 	def getBindings(self, name):
-		with open("bindings.yaml", 'rb') as bindingsFile:
+		with open(_path + "bindings.yaml", 'rb') as bindingsFile:
 			allBindings = yaml.load(bindingsFile)
 			#Load the default bindings and settings
 			bindings = allBindings["Default"]["Bindings"]
@@ -72,7 +66,7 @@ class joystick():
 	#Save the current value from the buffer to the list used for output.
 	#This way the value of a button won't change until the caller is ready
 	def poll(self):
-		self._pressed = self._buffer
+		self._down = self._buffer.copy()
 
 	def waitForConnection(self):
 		if(self.connected == True):
@@ -112,15 +106,41 @@ class joystick():
 			try:
 				keyName = self.bindings[key]
 				if(type == BUTTON):
-					self._buffer[keyName] = bool(value)
+					if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
+						self._buffer[keyName] = float(value)
+					else:
+						self._buffer[keyName] = bool(value)
 
 				elif(type == AXIS):
 					value = signInt(value)
-					max = self.settings["Analog Max"][keyName]
-					if(self.settings["Inverted Y"] and "Y" in keyName):
-						self._buffer[keyName] = -adjust(value, max)
+					if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
+						if(keyName == "DPad X"):
+							if(value < 0):
+								self._buffer["Right"] = False
+								self._buffer["Left"] = True
+							elif(value > 0):
+								self._buffer["Right"] = True
+								self._buffer["Left"] = False
+							else:
+								self._buffer["Right"] = False
+								self._buffer["Left"] = False
+						elif(keyName == "DPad Y"):
+							if(self.settings["Inverted Y"] ):
+								value = -value
+							if(value < 0):
+								self._buffer["Up"] = False
+								self._buffer["Down"] = True
+							elif(value > 0):
+								self._buffer["Up"] = True
+								self._buffer["Down"] = False
+							else:
+								self._buffer["Up"] = False
+								self._buffer["Down"] = False
+
+					elif(self.settings["Inverted Y"] and "Y" in keyName):
+						self._buffer[keyName] = -adjust(value, self.settings["Analog Max"][keyName])
 					else:
-						self._buffer[keyName] = adjust(value, max)
+						self._buffer[keyName] = adjust(value, self.settings["Analog Max"][keyName])
 
 			except KeyError:
 				if(DEBUG_MODE):
@@ -131,51 +151,51 @@ class joystick():
 	def isConnected(self):
 		return self.connected
 	def getA(self):
-		return self._pressed["A"]
+		return self._down["A"]
 	def getB(self):
-		return self._pressed["B"]
+		return self._down["B"]
 	def getC(self):
-		return self._pressed["C"]
+		return self._down["C"]
 	def getX(self):
-		return self._pressed["X"]
+		return self._down["X"]
 	def getY(self):
-		return self._pressed["Y"]
+		return self._down["Y"]
 	def getZ(self):
-		return self._pressed["Z"]
+		return self._down["Z"]
 	def getUp(self):
-		return self._pressed["Up"]
+		return self._down["Up"]
 	def getDown(self):
-		return self._pressed["Down"]
+		return self._down["Down"]
 	def getLeft(self):
-		return self._pressed["Left"]
+		return self._down["Left"]
 	def getRight(self):
-		return self._pressed["Right"]
+		return self._down["Right"]
 	def getSelect(self):
-		return self._pressed["Select"]
+		return self._down["Select"]
 	def getHome(self):
-		return self._pressed["Home"]
+		return self._down["Home"]
 	def getStart(self):
-		return self._pressed["Start"]
+		return self._down["Start"]
 	def getLeftTrigger(self):
-		return self._pressed["Left Trigger"]
+		return self._down["Left Trigger"]
 	def getRightTrigger(self):
-		return self._pressed["Right Trigger"]
+		return self._down["Right Trigger"]
 	def getLeftBumper(self):
-		return self._pressed["L"]
+		return self._down["L"]
 	def getRightBumper(self):
-		return self._pressed["R"]
+		return self._down["R"]
 	def getLeftX(self):
-		return self._pressed["Left X"]
+		return self._down["Left X"]
 	def getLeftY(self):
-		return self._pressed["Left Y"]
+		return self._down["Left Y"]
 	def getRightX(self):
-		return self._pressed["Right X"]
+		return self._down["Right X"]
 	def getRightY(self):
-		return self._pressed["Right Y"]
+		return self._down["Right Y"]
 	def getLeftStickButton(self):
-		return self._pressed["Left Stick Button"]
+		return self._down["Left Stick Button"]
 	def getRightStickButton(self):
-		return self._pressed["Right Stick Button"]
+		return self._down["Right Stick Button"]
 	def getName(self):
 		return self.name
 
@@ -271,7 +291,7 @@ def getAController():
 
 def getSupportedControllers():
 	controllers = []
-	with open("bindings.yaml", 'rb') as bindingsFile:
+	with open(_path + "bindings.yaml", 'rb') as bindingsFile:
 		allBindings = yaml.load(bindingsFile)
 		for binding in allBindings:
 			if(binding != "Default"):
