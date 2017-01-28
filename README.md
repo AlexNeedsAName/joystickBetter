@@ -10,7 +10,8 @@ TODO:
 - [x] Support for Wii Remote Buttons
 - [x] Support for Classic Controller and Nunchuk Accessories
 - [ ] Support for Wii Remote Accelerometer, IR, and other Accessories
-- [ ] Support for PS4 Controller
+- [x] Support for PS4 Controller and Touchpad
+- [ ] Support for PS4 accelerometers
 - [ ] Support for Xbox Controllers
 - [ ] Ability to see what buttons/axes the controller supports
 - [ ] Ability to get buttons by layout, not button name

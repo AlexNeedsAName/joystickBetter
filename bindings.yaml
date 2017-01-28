@@ -1,27 +1,27 @@
 Default:
   Bindings:
-    0:   "Left X"
-    1:   "Left Y"
-    2:   "Left Trigger"
-    3:   "Right X"
-    4:   "Right Y"
-    5:   "Right Trigger"
+    0:   Left X
+    1:   Left Y
+    2:   Left Trigger
+    3:   Right X
+    4:   Right Y
+    5:   Right Trigger
 
-    304: "A"
-    305: "B"
-    306: "C"
-    307: "X"
-    308: "Y"
-    309: "Z"
-    310: "L"
-    311: "R"
-    312: "Left Trigger"
-    313: "Right Trigger"
-    314: "Select"
-    315: "Start"
-    316: "Home"
-    317: "Left Stick Button"
-    318: "Right Stick Button"
+    304: A
+    305: B
+    306: C
+    307: X
+    308: Y
+    309: Z
+    310: L
+    311: R
+    312: Left Trigger
+    313: Right Trigger
+    314: Select
+    315: Start
+    316: Home
+    317: Left Stick Button
+    318: Right Stick Button
 
   Settings:
     Analog Max:
@@ -29,9 +29,16 @@ Default:
       Left Y:  32768
       Right X: 32768
       Right Y: 32768
-
       Left Trigger: 255
       Right Trigger: 255
+
+    Analog Center:
+      Left X:  0
+      Left Y:  0
+      Right X: 0
+      Right Y: 0
+      Left Trigger: 0
+      Right Trigger: 0
 
     Inverted Y: True
     D-Pad is Axis: False
@@ -39,13 +46,13 @@ Default:
 
 Nintendo Wii Remote Pro Controller:
   Bindings:
-    304: "B"
-    305: "A"
+    304: B
+    305: A
 
-    544: "Up"
-    545: "Down"
-    546: "Left"
-    547: "Right"
+    544: Up
+    545: Down
+    546: Left
+    547: Right
 
   Settings:
     Analog Max:
@@ -75,20 +82,63 @@ Nintendo Wii Remote Classic Controller:
       
 Nintendo Wii Remote:
   Bindings:
-    103: "Up"
-    105: "Left"
-    106: "Right"
-    108: "Down"
+    103: Up
+    105: Left
+    106: Right
+    108: Down
 
-    257: "X"
-    258: "Y"
+    257: X
+    258: Y
 
-    407: "Start"
-    412: "Select"
+    407: Start
+    412: Select
 
 Logitech Gamepad F310:
   Bindings:
-    16:  "DPad X"
-    17:  "DPad Y"
+    16:  DPad X
+    17:  DPad Y
   Settings:
     D-Pad is Axis: True
+
+Sony Computer Entertainment Wireless Controller:
+  Bindings:
+    2:   Right X
+    3:   Left Trigger
+    4:   Right Trigger
+    5:   Right Y
+
+    16:  DPad X
+    17:  DPad Y
+
+    47: Touchpad Two Fingers
+    53: Touchpad X
+    54: Touchpad Y
+    57: Touchpad Release
+
+    304: Y
+    306: A
+    305: B
+    307: X
+    308: L
+    309: R
+    310: None #Left Trigger, but it has analog values we'd rather use
+    311: None #Right Trigger, but it has analog values we'd rather use
+    312: Select
+    313: Start
+    314: Left Stick Button
+    315: Right Stick Button
+    317: Touchpad Button
+  Settings:
+    Analog Max:
+      Left X:  128
+      Left Y:  128
+      Right X: 128
+      Right Y: 128
+    Analog Center:
+      Left X:  128
+      Left Y:  128
+      Right X: 128
+      Right Y: 128
+    D-Pad is Axis: True
+    Keys that look like axes:
+      Touchpad Two Fingers

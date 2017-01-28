@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import threading, struct, time, yaml, sys
+import threading, struct, time, yaml, sys, collections
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 EVENT_FORMAT = "llHHI"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
@@ -14,7 +14,7 @@ _path.pop(len(_path)-1)
 _path = "/".join(_path) + "/"
 
 class joystick():
-	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False}
+	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False, "Touchpad X":0, "Touchpad Y":0, "Touchpad Button":False, "Touchpad Touched":False, "Touchpad Two Fingers":False}
 	_down = _buffer.copy()
 	_pressed = _buffer.copy()
 	ABSwitch = False
@@ -29,7 +29,7 @@ class joystick():
 		self.handler = self.path[11:]
 		self.name = getDeviceName(self.handler)
 
-		self.bindings, self.settings = self.getBindings(self.name)
+		self.bindings, self.settings = self.readBindings(self.name)
 
 		if(self.waitForConnection()):
 			raise PermissionError
@@ -42,7 +42,7 @@ class joystick():
 
 		self.updateThread.start()
 
-	def getBindings(self, name):
+	def readBindings(self, name):
 		with open(_path + "bindings.yaml", 'rb') as bindingsFile:
 			allBindings = yaml.load(bindingsFile)
 			#Load the default bindings and settings
@@ -52,16 +52,18 @@ class joystick():
 			#Merge the default bindings with the bindings for this controller
 			#If there are conflicts, the ones for the controller wins
 			try:
-				bindings.update(allBindings[name]["Bindings"])
+				bindings = update(bindings, allBindings[name]["Bindings"])
 			except KeyError:
 				pass
 			try:
-				settings.update(allBindings[name]["Settings"])
+				settings = update(settings, allBindings[name]["Settings"])
 			except KeyError:
 				pass
 
 			return (bindings, settings)
 
+	def getBinding(self, key):
+		return self.bindings[key]
 
 	#Save the current value from the buffer to the list used for output.
 	#This way the value of a button won't change until the caller is ready
@@ -105,6 +107,9 @@ class joystick():
 				self.waitForConnection()
 			try:
 				keyName = self.bindings[key]
+				if(keyName in self.settings["Keys that look like axes"]):
+					type = BUTTON
+
 				if(type == BUTTON):
 					if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
 						self._buffer[keyName] = float(value)
@@ -113,6 +118,9 @@ class joystick():
 
 				elif(type == AXIS):
 					value = signInt(value)
+					if("DPad" not in keyName and "Touchpad" not in keyName):
+						value = value-self.settings["Analog Center"][keyName]
+
 					if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
 						if(keyName == "DPad X"):
 							if(value < 0):
@@ -136,15 +144,19 @@ class joystick():
 							else:
 								self._buffer["Up"] = False
 								self._buffer["Down"] = False
-
+					elif("Touchpad" in keyName):
+						if("Release" in keyName):
+							self._buffer["Touchpad Touched"] = bool(value + 1)
+						else:
+							self._buffer[keyName] = value
 					elif(self.settings["Inverted Y"] and "Y" in keyName):
 						self._buffer[keyName] = -adjust(value, self.settings["Analog Max"][keyName])
 					else:
 						self._buffer[keyName] = adjust(value, self.settings["Analog Max"][keyName])
 
-			except KeyError:
-				if(DEBUG_MODE):
-					print("Unbound key: " + str(key))
+			except KeyError as e:
+				if(DEBUG_MODE and key not in range(40,46)):
+					print("Unbound key: " + str(key) + ":" + str(value) + " (type " + str(type) + ")")
 				pass
 
 	#All the getter functions for inputs, settings, status, etc
@@ -196,8 +208,27 @@ class joystick():
 		return self._down["Left Stick Button"]
 	def getRightStickButton(self):
 		return self._down["Right Stick Button"]
+	def getTouchpadX(self):
+		return self._down["Touchpad X"]
+	def getTouchpadY(self):
+		return self._down["Touchpad Y"]
+	def getTouchpadTouched(self):
+		return self._down["Touchpad Touched"]
+	def getTouchpadButton(self):
+		return self._down["Touchpad Button"]
+	def touchpadUsingTwoFingers(self):
+		return self._down["Touchpad Two Fingers"]
 	def getName(self):
 		return self.name
+
+def update(d, u):
+	for k, v in u.items():
+		if(isinstance(v, collections.Mapping)):
+			r = update(d.get(k, {}), v)
+			d[k] = r
+		else:
+			d[k] = u[k]
+	return d
 
 def signInt(int):
 	if(int > MAX/2):
@@ -300,6 +331,6 @@ def getSupportedControllers():
 
 SUPPORTED_CONTROLLERS = getSupportedControllers()
 if(DEBUG_MODE and __name__ == "__main__"):
-	js = joystick(promptForController(includeUnsupported = False)[0], getRaw = True)
+	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
 	input("Press enter to quit.\n")
 
