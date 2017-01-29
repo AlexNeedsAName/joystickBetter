@@ -5,6 +5,7 @@ import time
 #print(joystick.getDevices())
 
 js = joystick.joystick(joystick.getAController())
+
 while True:
 	js.poll() #Grab to the most recent values
 	print(chr(27) + "[2J" + chr(27) + "[H") #Clear the screen
@@ -44,6 +45,14 @@ while True:
 	print("Right Bumper:  " + str(js.getRightBumper()))
 	print("Left Trigger:  " + str(js.getLeftTrigger()))
 	print("Right Trigger: " + str(js.getRightTrigger()))
+
+	if("Sony" in js.getName()):
+		print("")
+		print("Touchpad X: " + str(js.getTouchpadX()))
+		print("Touchpad Y: " + str(js.getTouchpadY()))
+		print("Touchpad Touched: " + str(js.getTouchpadTouched()))
+		print("Touchpad Button:  " + str(js.getTouchpadButton()))
+		print("Touchpad Two Fingers:  " + str(js.touchpadUsingTwoFingers()))
 
 	print("")
 	print(js.getName())

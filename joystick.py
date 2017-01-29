@@ -105,9 +105,11 @@ class joystick():
 			except OSError:
 				self.connected = False
 				self.waitForConnection()
-			try:
+
+			if(key in self.bindings):
 				keyName = self.bindings[key]
-				if(keyName in self.settings["Keys that look like axes"]):
+
+				if("Keys that look like axes" in self.settings and keyName in self.settings["Keys that look like axes"]):
 					type = BUTTON
 
 				if(type == BUTTON):
@@ -154,9 +156,9 @@ class joystick():
 					else:
 						self._buffer[keyName] = adjust(value, self.settings["Analog Max"][keyName])
 
-			except KeyError as e:
-				if(DEBUG_MODE and key not in range(40,46)):
-					print("Unbound key: " + str(key) + ":" + str(value) + " (type " + str(type) + ")")
+			else:
+				if(DEBUG_MODE):
+					print("Unbound key: " + str(key) + " with value of " + str(value) + " (type " + str(type) + ")")
 				pass
 
 	#All the getter functions for inputs, settings, status, etc
