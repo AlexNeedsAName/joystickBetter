@@ -1,0 +1,41 @@
+Bindings:
+  0:   Left X
+  1:   Left Y
+  2:   Right X
+  3:   None
+  4:   None
+  5:   Right Y
+
+  304: X
+  305: A
+  306: B
+  307: Y
+  308: L
+  309: R
+  310: Left Trigger
+  311: Right Trigger
+  312: Select
+  313: Start
+  314: Left Stick Button
+  315: Right Stick Button
+
+  16:  DPad X
+  17:  DPad Y
+
+Settings:
+  Analog Max:
+    Left X:  128
+    Left Y:  128
+    Right X: 128
+    Right Y: 128
+    Left Trigger: 255
+    Right Trigger: 255
+
+  Analog Center:
+    Left X:  128
+    Left Y:  128
+    Right X: 128
+    Right Y: 128
+
+  D-Pad is Axis: True
+  Triggers are Buttons: True

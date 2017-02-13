@@ -1,0 +1,8 @@
+Bindings:
+  16: Left X
+  17: Left Y
+Settings:
+  Analog Max:
+    Left X: 64
+    Left Y: 64
+  Inverted Y: False

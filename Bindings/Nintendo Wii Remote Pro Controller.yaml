@@ -1,0 +1,16 @@
+Bindings:
+  304: B
+  305: A
+
+  544: Up
+  545: Down
+  546: Left
+  547: Right
+
+Settings:
+  Analog Max:
+    Left X:  1024
+    Left Y:  1024
+    Right X: 1024
+    Right Y: 1024
+    Triggers are Buttons: True

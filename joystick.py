@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import threading, struct, time, yaml, sys, collections
+import threading, struct, time, yaml, sys, collections, os
 
 DEBUG_MODE = True
+REGISTER_MODE = False
 
 EVENT_FORMAT = "llHHI"
 EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
@@ -14,7 +15,7 @@ _path.pop(len(_path)-1)
 _path = "/".join(_path) + "/"
 
 class joystick():
-	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False, "Touchpad X":0, "Touchpad Y":0, "Touchpad Button":False, "Touchpad Touched":False, "Touchpad Two Fingers":False}
+	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False, "Touchpad X":0, "Touchpad Y":0, "Touchpad Button":False, "Touchpad Touched":False, "Touchpad Two Fingers":False, "Accel X":0, "Accel Y":0, "Accel Z":0}
 	_down = _buffer.copy()
 	_pressed = _buffer.copy()
 	ABSwitch = False
@@ -43,24 +44,26 @@ class joystick():
 		self.updateThread.start()
 
 	def readBindings(self, name):
-		with open(_path + "bindings.yaml", 'rb') as bindingsFile:
-			allBindings = yaml.load(bindingsFile)
+		with open(_path + "Bindings/Default.yaml", 'rb') as bindingsFile:
+			defaultBindings = yaml.load(bindingsFile)
 			#Load the default bindings and settings
-			bindings = allBindings["Default"]["Bindings"]
-			settings = allBindings["Default"]["Settings"]
+			bindings = defaultBindings["Bindings"]
+			settings = defaultBindings["Settings"]
 
+		with open(_path + "Bindings/" + name + ".yaml") as bindingsFile:
+			specificBindings = yaml.load(bindingsFile)
 			#Merge the default bindings with the bindings for this controller
 			#If there are conflicts, the ones for the controller wins
 			try:
-				bindings = update(bindings, allBindings[name]["Bindings"])
+				bindings = update(bindings, specificBindings["Bindings"])
 			except KeyError:
 				pass
 			try:
-				settings = update(settings, allBindings[name]["Settings"])
+				settings = update(settings, specificBindings["Settings"])
 			except KeyError:
 				pass
 
-			return (bindings, settings)
+		return (bindings, settings)
 
 	def getBinding(self, key):
 		return self.bindings[key]
@@ -113,6 +116,8 @@ class joystick():
 					type = BUTTON
 
 				if(type == BUTTON):
+					if(REGISTER_MODE):
+						print(str(key) + " : " + str(bool(value)))
 					if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
 						self._buffer[keyName] = float(value)
 					else:
@@ -151,13 +156,15 @@ class joystick():
 							self._buffer["Touchpad Touched"] = bool(value + 1)
 						else:
 							self._buffer[keyName] = value
+					elif(key in [40,41,42]):
+						self._buffer[keyName] = value
 					elif(self.settings["Inverted Y"] and "Y" in keyName):
 						self._buffer[keyName] = -adjust(value, self.settings["Analog Max"][keyName])
 					else:
 						self._buffer[keyName] = adjust(value, self.settings["Analog Max"][keyName])
 
 			else:
-				if(DEBUG_MODE):
+				if(DEBUG_MODE and key not in [43,44,45]):
 					print("Unbound key: " + str(key) + " with value of " + str(value) + " (type " + str(type) + ")")
 				pass
 
@@ -220,6 +227,12 @@ class joystick():
 		return self._down["Touchpad Button"]
 	def touchpadUsingTwoFingers(self):
 		return self._down["Touchpad Two Fingers"]
+	def getAccelX(self):
+		return self._down["Accel X"]
+	def getAccelY(self):
+		return self._down["Accel Y"]
+	def getAccelZ(self):
+		return self._down["Accel Z"]
 	def getName(self):
 		return self.name
 
@@ -323,16 +336,15 @@ def getAController():
 		return promptForController()[0]
 
 def getSupportedControllers():
+	EXTENSION = ".yaml"
 	controllers = []
-	with open(_path + "bindings.yaml", 'rb') as bindingsFile:
-		allBindings = yaml.load(bindingsFile)
-		for binding in allBindings:
-			if(binding != "Default"):
-				controllers.append(binding)
+	for filename in os.listdir(_path + "Bindings/"):
+		if(filename.endswith(EXTENSION)):
+			controllers.append(filename[:-len(EXTENSION)])
 	return controllers
 
 SUPPORTED_CONTROLLERS = getSupportedControllers()
-if(DEBUG_MODE and __name__ == "__main__"):
+if((DEBUG_MODE or REGISTER_MODE) and __name__ == "__main__"):
 	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
 	input("Press enter to quit.\n")
 

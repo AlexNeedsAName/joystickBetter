@@ -1,0 +1,45 @@
+Bindings:
+  2:   Right X
+  3:   Left Trigger
+  4:   Right Trigger
+  5:   Right Y
+
+  16:  DPad X
+  17:  DPad Y
+
+  40: Accel X
+  41: Accel Y
+  42: Accel Z
+
+  47: Touchpad Two Fingers
+  53: Touchpad X
+  54: Touchpad Y
+  57: Touchpad Release
+
+  304: Y
+  306: A
+  305: B
+  307: X
+  308: L
+  309: R
+  310: None #Left Trigger, but it has analog values we'd rather use
+  311: None #Right Trigger, but it has analog values we'd rather use
+  312: Select
+  313: Start
+  314: Left Stick Button
+  315: Right Stick Button
+  317: Touchpad Button
+Settings:
+  Analog Max:
+    Left X:  128
+    Left Y:  128
+    Right X: 128
+    Right Y: 128
+  Analog Center:
+    Left X:  128
+    Left Y:  128
+    Right X: 128
+    Right Y: 128
+  D-Pad is Axis: True
+  Keys that look like axes:
+    Touchpad Two Fingers
