@@ -1,61 +1,78 @@
 #!/usr/bin/env python3
 import joystick
 import time
+import sys
 
-#print(joystick.getDevices())
+ESC = chr(27)
+RED   = ESC + "[31m"
+GREEN = ESC + "[32m"
+RESET = ESC + "[39m"
 
-js = joystick.joystick(joystick.getAController())
+def write(x,y, message):
+	if(isinstance(message, int)):
+		if(message):
+			message = GREEN + "True" + RESET
+		else:
+			message = RED + "False" + RESET
+	sys.stdout.write("\x1b[{};{}H\x1b[K{}".format(x,y,message))
 
-while True:
-	js.poll() #Grab to the most recent values
-	print(chr(27) + "[2J" + chr(27) + "[H") #Clear the screen
-	print("LX: " + str(js.getLeftX()))
-	print("LY: " + str(js.getLeftY()))
-	print("RX: " + str(js.getRightX()))
-	print("RY: " + str(js.getRightY()))
 
-	print("")
-	print("Left Stick Button:  " + str(js.getLeftStickButton()))
-	print("Right Stick Button: " + str(js.getRightStickButton()))
+def main():
+	js = joystick.WiiUProController(joystick.getAController())
 
-	print("")
-	print("A: " + str(js.getA()))
-	print("B: " + str(js.getB()))
-	print("X: " + str(js.getX()))
-	print("Y: " + str(js.getY()))
+	print("\x1b[?47h\x1b[2J\x1b[HA:")
+	print("B:")
+	print("X:")
+	print("Y:")
+	print()
+	print("L:")
+	print("R:")
+	print("ZL:")
+	print("ZR:")
+	print()
+	print("Up:")
+	print("Down:")
+	print("Left:")
+	print("Right:")
+	print()
+	print("Left X:")
+	print("Left Y:")
+	print("Left B:")
+	print()
+	print("Right X:")
+	print("Right Y:")
+	print("Right B:")
 
-	if("Nunchuk" in js.getName()):
-		print("")
-		print("C: " + str(js.getC()))
-		print("Z: " + str(js.getZ()))
+	while(True):
+		js.poll()
+		write(1,4,js.A.isDown())
+		write(2,4,js.B.isDown())
+		write(3,4,js.X.isDown())
+		write(4,4,js.Y.isDown())
 
-	print("")
-	print("Up:    " + str(js.getUp()))
-	print("Down:  " + str(js.getDown()))
-	print("Left:  " + str(js.getLeft()))
-	print("Right: " + str(js.getRight()))
+		write(6,4,js.L.isDown())
+		write(7,4,js.R.isDown())
+		write(8,5,js.ZL.isDown())
+		write(9,5,js.ZR.isDown())
 
-	print("")
-	print("Start:  " + str(js.getStart()))
-	print("Select: " + str(js.getSelect()))
-	print("Home:   " + str(js.getHome()))
+		write(11,8,js.Up.isDown())
+		write(12,8,js.Down.isDown())
+		write(13,8,js.Left.isDown())
+		write(14,8,js.Right.isDown())
 
-	print("")
-	print("Left Bumper:   " + str(js.getLeftBumper()))
-	print("Right Bumper:  " + str(js.getRightBumper()))
-	print("Left Trigger:  " + str(js.getLeftTrigger()))
-	print("Right Trigger: " + str(js.getRightTrigger()))
+		write(16,9,js.LeftStick.getX())
+		write(17,9,js.LeftStick.getY())
+		write(18,9,js.LeftStick.Button.isDown())
 
-	if("Sony" in js.getName()):
-		print("")
-		print("Touchpad X: " + str(js.getTouchpadX()))
-		print("Touchpad Y: " + str(js.getTouchpadY()))
-		print("Touchpad Touched: " + str(js.getTouchpadTouched()))
-		print("Touchpad Button:  " + str(js.getTouchpadButton()))
-		print("Touchpad Two Fingers:  " + str(js.touchpadUsingTwoFingers()))
+		write(20,10,js.RightStick.getX())
+		write(21,10,js.RightStick.getY())
+		write(22,10,js.RightStick.Button.isDown())
 
-	print("")
-	print(js.getName())
-	if(not js.isConnected()):
-		print("Disconnected")
-	time.sleep(.1)
+		sys.stdout.flush()
+
+if(__name__ == "__main__"):
+	try:
+		main()
+	except KeyboardInterrupt:
+		sys.stdout.write("\x1b[?47l")
+		sys.stdout.flush()

@@ -14,14 +14,59 @@ _path = __file__.split("/")
 _path.pop(len(_path)-1)
 _path = "/".join(_path) + "/"
 
-class joystick():
-	_buffer = { "A":False, "B":False, "X":False, "Y":False, "L":False, "R":False, "Left Trigger":0.0, "Right Trigger":0.0, "Select":False, "Start":False, "Home":False, "Left Stick Button":False, "Right Stick Button":False, "Up":False, "Down":False, "Left":False, "Right":False, "Left X":0, "Left Y":0, "Right X":0, "Right Y":0, "C":False, "Z":False, "Touchpad X":0, "Touchpad Y":0, "Touchpad Button":False, "Touchpad Touched":False, "Touchpad Two Fingers":False, "Accel X":0, "Accel Y":0, "Accel Z":0}
-	_down = _buffer.copy()
-	_pressed = _buffer.copy()
-	ABSwitch = False
+class Button:
+	_current  = False
+	_pressed  = False
+	_down     = False
+	_released = False
 
+	def update(self, current):
+		self._current = current
+
+	def poll(self):
+		self._pressed  = (self._current and not self._down)
+		self._released = (not self._current and self._down)
+		self._down = self._current
+
+	def isDown(self):
+		return self._down
+
+	def isPressed(self):
+		return self._pressed
+
+	def isReleased(self):
+		return self._released
+
+class Axis:
+	_current = 0
+	_value = 0
+
+	def update(self, value):
+		self._current = value
+
+	def poll(self):
+		self._value = self._current
+
+	def getValue(self):
+		return self._value
+
+class Stick:
+	def __init__(self, X, Y, button):
+		self._X = X
+		self._Y = Y
+		self.Button = button
+
+	def getX(self):
+		return self._X.getValue()
+
+	def getY(self):
+		return self._Y.getValue()
+
+class joystick:
+#	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Select":Button(), "Start":Button(), "Home":Button(), "Left Stick Button":Button(), "Right Stick Button":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Right X":Axis(), "Right Y":Axis(), "C":Button(), "Z":Button(), "Touchpad X":Axis(), "Touchpad Y":Axis(), "Touchpad Button":Button(), "Touchpad Touched":Button(), "Touchpad Two Fingers":Button(), "Accel X":Axis(), "Accel Y":Axis(), "Accel Z":Axis()}
+#	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button()}
+	_buffer = {}
 	connected = False
-
 	updateThread = None
 
 	def __init__(self, path, layout = None, getRaw = False): #Layout will be used to specify a button mapping (eg, Nintendo or Xbox ABXY)
@@ -71,7 +116,12 @@ class joystick():
 	#Save the current value from the buffer to the list used for output.
 	#This way the value of a button won't change until the caller is ready
 	def poll(self):
-		self._down = self._buffer.copy()
+		for key,value in self._buffer.items():
+#			if(isinstance(value,Button)):
+			value.poll()
+#			if(isinstance(key, Button)):
+#			print("{} is a Button".format(key))
+#			key.poll()
 
 	def waitForConnection(self):
 		if(self.connected == True):
@@ -104,7 +154,7 @@ class joystick():
 	def _read(self):
 		while(True):
 			try:
-				(time, idkWhatThisIs, type, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
+				(time, _, type, key, value) = struct.unpack(EVENT_FORMAT, self.inputFile.read(EVENT_SIZE))
 			except OSError:
 				self.connected = False
 				self.waitForConnection()
@@ -119,9 +169,9 @@ class joystick():
 					if(REGISTER_MODE):
 						print(str(key) + " : " + str(bool(value)))
 					if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
-						self._buffer[keyName] = float(value)
+						self._buffer[keyName].update(float(value))
 					else:
-						self._buffer[keyName] = bool(value)
+						self._buffer[keyName].update(bool(value))
 
 				elif(type == AXIS):
 					value = signInt(value)
@@ -131,110 +181,82 @@ class joystick():
 					if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
 						if(keyName == "DPad X"):
 							if(value < 0):
-								self._buffer["Right"] = False
-								self._buffer["Left"] = True
+								self._buffer["Right"].update(False)
+								self._buffer["Left"].update(True)
 							elif(value > 0):
-								self._buffer["Right"] = True
-								self._buffer["Left"] = False
+								self._buffer["Right"].update(True)
+								self._buffer["Left"].update(False)
 							else:
-								self._buffer["Right"] = False
-								self._buffer["Left"] = False
+								self._buffer["Right"].update(False)
+								self._buffer["Left"].update(False)
 						elif(keyName == "DPad Y"):
 							if(self.settings["Inverted Y"] ):
 								value = -value
 							if(value < 0):
-								self._buffer["Up"] = False
-								self._buffer["Down"] = True
+								self._buffer["Up"].update(False)
+								self._buffer["Down"].update(True)
 							elif(value > 0):
-								self._buffer["Up"] = True
-								self._buffer["Down"] = False
+								self._buffer["Up"].update(True)
+								self._buffer["Down"].update(False)
 							else:
-								self._buffer["Up"] = False
-								self._buffer["Down"] = False
+								self._buffer["Up"].update(False)
+								self._buffer["Down"].update(False)
 					elif("Touchpad" in keyName):
 						if("Release" in keyName):
-							self._buffer["Touchpad Touched"] = bool(value + 1)
+							self._buffer["Touchpad Touched"].update(bool(value + 1))
 						else:
-							self._buffer[keyName] = value
+							self._buffer[keyName].update(value)
 					elif(key in [40,41,42]):
-						self._buffer[keyName] = value
+						self._buffer[keyName].update(value)
 					elif(self.settings["Inverted Y"] and "Y" in keyName):
-						self._buffer[keyName] = -adjust(value, self.settings["Analog Max"][keyName])
+						self._buffer[keyName].update(-adjust(value, self.settings["Analog Max"][keyName]))
 					else:
-						self._buffer[keyName] = adjust(value, self.settings["Analog Max"][keyName])
+						self._buffer[keyName].update(adjust(value, self.settings["Analog Max"][keyName]))
 
 			else:
 				if(DEBUG_MODE and key not in [43,44,45]):
 					print("Unbound key: " + str(key) + " with value of " + str(value) + " (type " + str(type) + ")")
 				pass
 
-	#All the getter functions for inputs, settings, status, etc
-	def isConnected(self):
-		return self.connected
-	def getA(self):
-		return self._down["A"]
-	def getB(self):
-		return self._down["B"]
-	def getC(self):
-		return self._down["C"]
-	def getX(self):
-		return self._down["X"]
-	def getY(self):
-		return self._down["Y"]
-	def getZ(self):
-		return self._down["Z"]
-	def getUp(self):
-		return self._down["Up"]
-	def getDown(self):
-		return self._down["Down"]
-	def getLeft(self):
-		return self._down["Left"]
-	def getRight(self):
-		return self._down["Right"]
-	def getSelect(self):
-		return self._down["Select"]
-	def getHome(self):
-		return self._down["Home"]
-	def getStart(self):
-		return self._down["Start"]
-	def getLeftTrigger(self):
-		return self._down["Left Trigger"]
-	def getRightTrigger(self):
-		return self._down["Right Trigger"]
-	def getLeftBumper(self):
-		return self._down["L"]
-	def getRightBumper(self):
-		return self._down["R"]
-	def getLeftX(self):
-		return self._down["Left X"]
-	def getLeftY(self):
-		return self._down["Left Y"]
-	def getRightX(self):
-		return self._down["Right X"]
-	def getRightY(self):
-		return self._down["Right Y"]
-	def getLeftStickButton(self):
-		return self._down["Left Stick Button"]
-	def getRightStickButton(self):
-		return self._down["Right Stick Button"]
-	def getTouchpadX(self):
-		return self._down["Touchpad X"]
-	def getTouchpadY(self):
-		return self._down["Touchpad Y"]
-	def getTouchpadTouched(self):
-		return self._down["Touchpad Touched"]
-	def getTouchpadButton(self):
-		return self._down["Touchpad Button"]
-	def touchpadUsingTwoFingers(self):
-		return self._down["Touchpad Two Fingers"]
-	def getAccelX(self):
-		return self._down["Accel X"]
-	def getAccelY(self):
-		return self._down["Accel Y"]
-	def getAccelZ(self):
-		return self._down["Accel Z"]
-	def getName(self):
-		return self.name
+class WiiUProController(joystick):
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Button(), "Right Trigger":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
+
+	A =  _buffer["A"]
+	B =  _buffer["B"]
+	X =  _buffer["X"]
+	Y =  _buffer["Y"]
+	L =  _buffer["L"]
+	R =  _buffer["R"]
+	ZL = _buffer["Left Trigger"]
+	ZR = _buffer["Right Trigger"]
+
+	Up    = _buffer["Up"]
+	Down  = _buffer["Down"]
+	Left  = _buffer["Left"]
+	Right = _buffer["Right"]
+
+	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
+
+class PS4Controller(joystick):
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
+
+	A =  _buffer["A"]
+	B =  _buffer["B"]
+	X =  _buffer["X"]
+	Y =  _buffer["Y"]
+	L =  _buffer["L"]
+	R =  _buffer["R"]
+	ZL = _buffer["Left Trigger"]
+	ZR = _buffer["Right Trigger"]
+
+	Up    = _buffer["Up"]
+	Down  = _buffer["Down"]
+	Left  = _buffer["Left"]
+	Right = _buffer["Right"]
+
+	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
 
 def update(d, u):
 	for k, v in u.items():
@@ -261,7 +283,7 @@ def adjust(val, max):
 		val = -1.0
 	return val
 
-def getDevices(includeUnsupported=False):
+def getDevices(includeUnsupported=True):
 	controllers = {}
 	with open("/proc/bus/input/devices", "rb") as deviceFile:
 		devices = str(deviceFile.read()).split("\\n\\n")
@@ -342,9 +364,18 @@ def getSupportedControllers():
 		if(filename.endswith(EXTENSION)):
 			controllers.append(filename[:-len(EXTENSION)])
 	return controllers
-
 SUPPORTED_CONTROLLERS = getSupportedControllers()
-if((DEBUG_MODE or REGISTER_MODE) and __name__ == "__main__"):
-	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
-	input("Press enter to quit.\n")
 
+
+#if((DEBUG_MODE or REGISTER_MODE) and __name__ == "__main__"):
+#	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
+#	input("Press enter to quit.\n")
+
+if(__name__ == "__main__"):
+	print("Connecting")
+	js = WiiUProController(getAController())
+	print("Connected")
+	while(True):
+		js.poll()
+		print(js.LeftStick.Button.isDown())
+		time.sleep(0.01)
