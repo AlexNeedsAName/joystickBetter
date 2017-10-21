@@ -37,11 +37,16 @@ class Button:
 	def isReleased(self):
 		return self._released
 
+	def getValue(self):
+		return int(self._down)
+
 class Axis:
 	_current = 0
 	_value = 0
 
 	def update(self, value):
+		if(isinstance(value, bool)):
+			value = int(value)
 		self._current = value
 
 	def poll(self):
@@ -63,8 +68,6 @@ class Stick:
 		return self._Y.getValue()
 
 class joystick:
-#	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Select":Button(), "Start":Button(), "Home":Button(), "Left Stick Button":Button(), "Right Stick Button":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Right X":Axis(), "Right Y":Axis(), "C":Button(), "Z":Button(), "Touchpad X":Axis(), "Touchpad Y":Axis(), "Touchpad Button":Button(), "Touchpad Touched":Button(), "Touchpad Two Fingers":Button(), "Accel X":Axis(), "Accel Y":Axis(), "Accel Z":Axis()}
-#	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button()}
 	_buffer = {}
 	connected = False
 	updateThread = None
@@ -117,11 +120,7 @@ class joystick:
 	#This way the value of a button won't change until the caller is ready
 	def poll(self):
 		for key,value in self._buffer.items():
-#			if(isinstance(value,Button)):
 			value.poll()
-#			if(isinstance(key, Button)):
-#			print("{} is a Button".format(key))
-#			key.poll()
 
 	def waitForConnection(self):
 		if(self.connected == True):
@@ -159,64 +158,104 @@ class joystick:
 				self.connected = False
 				self.waitForConnection()
 
-			if(key in self.bindings):
-				keyName = self.bindings[key]
+			try:
+				if(key in self.bindings):
+					keyName = self.bindings[key]
 
-				if("Keys that look like axes" in self.settings and keyName in self.settings["Keys that look like axes"]):
-					type = BUTTON
+					if("Keys that look like axes" in self.settings and keyName in self.settings["Keys that look like axes"]):
+						type = BUTTON
 
-				if(type == BUTTON):
-					if(REGISTER_MODE):
-						print(str(key) + " : " + str(bool(value)))
-					if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
-						self._buffer[keyName].update(float(value))
-					else:
-						self._buffer[keyName].update(bool(value))
-
-				elif(type == AXIS):
-					value = signInt(value)
-					if("DPad" not in keyName and "Touchpad" not in keyName):
-						value = value-self.settings["Analog Center"][keyName]
-
-					if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
-						if(keyName == "DPad X"):
-							if(value < 0):
-								self._buffer["Right"].update(False)
-								self._buffer["Left"].update(True)
-							elif(value > 0):
-								self._buffer["Right"].update(True)
-								self._buffer["Left"].update(False)
-							else:
-								self._buffer["Right"].update(False)
-								self._buffer["Left"].update(False)
-						elif(keyName == "DPad Y"):
-							if(self.settings["Inverted Y"] ):
-								value = -value
-							if(value < 0):
-								self._buffer["Up"].update(False)
-								self._buffer["Down"].update(True)
-							elif(value > 0):
-								self._buffer["Up"].update(True)
-								self._buffer["Down"].update(False)
-							else:
-								self._buffer["Up"].update(False)
-								self._buffer["Down"].update(False)
-					elif("Touchpad" in keyName):
-						if("Release" in keyName):
-							self._buffer["Touchpad Touched"].update(bool(value + 1))
+					if(type == BUTTON):
+						if(REGISTER_MODE):
+							print(str(key) + " : " + str(bool(value)))
+						if("Trigger" in keyName and self.settings["Triggers are Buttons"]):
+							self._buffer[keyName].update(float(value))
 						else:
-							self._buffer[keyName].update(value)
-					elif(key in [40,41,42]):
-						self._buffer[keyName].update(value)
-					elif(self.settings["Inverted Y"] and "Y" in keyName):
-						self._buffer[keyName].update(-adjust(value, self.settings["Analog Max"][keyName]))
-					else:
-						self._buffer[keyName].update(adjust(value, self.settings["Analog Max"][keyName]))
+							self._buffer[keyName].update(bool(value))
 
-			else:
-				if(DEBUG_MODE and key not in [43,44,45]):
-					print("Unbound key: " + str(key) + " with value of " + str(value) + " (type " + str(type) + ")")
+					elif(type == AXIS):
+						value = signInt(value)
+						if("DPad" not in keyName and "Touchpad" not in keyName):
+							value = value-self.settings["Analog Center"][keyName]
+
+						if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
+							if(keyName == "DPad X"):
+								if(value < 0):
+									self._buffer["Right"].update(False)
+									self._buffer["Left"].update(True)
+								elif(value > 0):
+									self._buffer["Right"].update(True)
+									self._buffer["Left"].update(False)
+								else:
+									self._buffer["Right"].update(False)
+									self._buffer["Left"].update(False)
+							elif(keyName == "DPad Y"):
+								if(self.settings["Inverted Y"] ):
+									value = -value
+								if(value < 0):
+									self._buffer["Up"].update(False)
+									self._buffer["Down"].update(True)
+								elif(value > 0):
+									self._buffer["Up"].update(True)
+									self._buffer["Down"].update(False)
+								else:
+									self._buffer["Up"].update(False)
+									self._buffer["Down"].update(False)
+						elif("Touchpad" in keyName):
+							if("Release" in keyName):
+								self._buffer["Touchpad Touched"].update(bool(value + 1))
+							else:
+								self._buffer[keyName].update(value)
+						elif(key in [40,41,42]):
+							self._buffer[keyName].update(value)
+						elif(self.settings["Inverted Y"] and "Y" in keyName):
+							self._buffer[keyName].update(-adjust(value, self.settings["Analog Max"][keyName]))
+						else:
+							self._buffer[keyName].update(adjust(value, self.settings["Analog Max"][keyName]))
+
+				else:
+					if(DEBUG_MODE and key not in [43,44,45]):
+						print("Unbound key: " + str(key) + " with value of " + str(value) + " (type " + str(type) + ")")
+			except KeyError:
 				pass
+
+class GenericNoSticks(joystick): #Like an SNES Controller
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button()}
+
+	A =  _buffer["A"]
+	B =  _buffer["B"]
+	X =  _buffer["X"]
+	Y =  _buffer["Y"]
+	L =  _buffer["L"]
+	R =  _buffer["R"]
+
+	Start = _buffer["Start"]
+	Select = _buffer["Select"]
+	Home = _buffer["Home"]
+
+class GenericTwoStickGamepad(joystick): #Like a modern console controller
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
+
+	A =  _buffer["A"]
+	B =  _buffer["B"]
+	X =  _buffer["X"]
+	Y =  _buffer["Y"]
+	L =  _buffer["L"]
+	R =  _buffer["R"]
+	ZL = _buffer["Left Trigger"]
+	ZR = _buffer["Right Trigger"]
+
+	Start = _buffer["Start"]
+	Select = _buffer["Select"]
+	Home = _buffer["Home"]
+
+	Up    = _buffer["Up"]
+	Down  = _buffer["Down"]
+	Left  = _buffer["Left"]
+	Right = _buffer["Right"]
+
+	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
 
 class WiiUProController(joystick):
 	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Button(), "Right Trigger":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}

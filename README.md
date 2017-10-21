@@ -4,7 +4,7 @@ TODO:
 - [x] Scan for avalilable controllers
 - [x] Function to prompt the user to select their controller
 - [x] Ability to easily keep track of controllers already in use
-- [x] Controller Bindings stored in a yaml file for ability to add your own bindings (Send a pull request if you do :D)
+- [x] Controller Bindings stored in a yaml file for ability to add your own bindings
 - [x] Support for Wii U Pro Controller
 - [x] Support for Logitech F310
 - [x] Support for Wii Remote Buttons
