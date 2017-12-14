@@ -32,6 +32,8 @@ Settings:
     Right Trigger: 255
 
   Analog Center:
+    DPad X: 0
+    DPad Y: 0
     Left X:  0
     Left Y:  0
     Right X: 0

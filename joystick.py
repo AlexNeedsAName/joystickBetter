@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import threading, struct, time, yaml, sys, collections, os
+import threading, struct, time, yaml, sys, collections, os, math
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 REGISTER_MODE = False
 
 EVENT_FORMAT = "llHHI"
@@ -67,6 +67,12 @@ class Stick:
 	def getY(self):
 		return self._Y.getValue()
 
+	def getMagnitude(self):
+		return math.hypot(self.getY(), self.getX())
+
+	def getAngle(self):
+		return math.atan2(self.getY(), self.getX())
+
 class joystick:
 	_buffer = {}
 	connected = False
@@ -97,20 +103,21 @@ class joystick:
 			#Load the default bindings and settings
 			bindings = defaultBindings["Bindings"]
 			settings = defaultBindings["Settings"]
-
-		with open(_path + "Bindings/" + name + ".yaml") as bindingsFile:
-			specificBindings = yaml.load(bindingsFile)
-			#Merge the default bindings with the bindings for this controller
-			#If there are conflicts, the ones for the controller wins
-			try:
-				bindings = update(bindings, specificBindings["Bindings"])
-			except KeyError:
-				pass
-			try:
-				settings = update(settings, specificBindings["Settings"])
-			except KeyError:
-				pass
-
+		try:
+			with open(_path + "Bindings/" + name + ".yaml") as bindingsFile:
+				specificBindings = yaml.load(bindingsFile)
+				#Merge the default bindings with the bindings for this controller
+				#If there are conflicts, the ones for the controller wins
+				try:
+					bindings = update(bindings, specificBindings["Bindings"])
+				except KeyError:
+					pass
+				try:
+					settings = update(settings, specificBindings["Settings"])
+				except KeyError:
+					pass
+		except FileNotFoundError:
+			pass
 		return (bindings, settings)
 
 	def getBinding(self, key):
@@ -149,6 +156,7 @@ class joystick:
 					print(str(key) + " (" + self.bindings[key] + "):" + str(value))
 				except KeyError:
 					print(str(key) + ":" + str(value))
+#			print(type, key, value)
 
 	def _read(self):
 		while(True):
@@ -175,7 +183,7 @@ class joystick:
 
 					elif(type == AXIS):
 						value = signInt(value)
-						if("DPad" not in keyName and "Touchpad" not in keyName):
+						if("Touchpad" not in keyName):
 							value = value-self.settings["Analog Center"][keyName]
 
 						if(self.settings["D-Pad is Axis"] and "DPad" in keyName):
@@ -222,12 +230,12 @@ class joystick:
 class GenericNoSticks(joystick): #Like an SNES Controller
 	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button()}
 
-	A =  _buffer["A"]
-	B =  _buffer["B"]
-	X =  _buffer["X"]
-	Y =  _buffer["Y"]
-	L =  _buffer["L"]
-	R =  _buffer["R"]
+	A = _buffer["A"]
+	B = _buffer["B"]
+	X = _buffer["X"]
+	Y = _buffer["Y"]
+	L = _buffer["L"]
+	R = _buffer["R"]
 
 	Start = _buffer["Start"]
 	Select = _buffer["Select"]
@@ -236,29 +244,29 @@ class GenericNoSticks(joystick): #Like an SNES Controller
 class GenericTwoStickGamepad(joystick): #Like a modern console controller
 	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
 
-	A =  _buffer["A"]
-	B =  _buffer["B"]
-	X =  _buffer["X"]
-	Y =  _buffer["Y"]
-	L =  _buffer["L"]
-	R =  _buffer["R"]
+	A = _buffer["A"]
+	B = _buffer["B"]
+	X = _buffer["X"]
+	Y = _buffer["Y"]
+	L = _buffer["L"]
+	R = _buffer["R"]
 	ZL = _buffer["Left Trigger"]
 	ZR = _buffer["Right Trigger"]
 
-	Start = _buffer["Start"]
+	Start =  _buffer["Start"]
 	Select = _buffer["Select"]
-	Home = _buffer["Home"]
+	Home =   _buffer["Home"]
 
 	Up    = _buffer["Up"]
 	Down  = _buffer["Down"]
 	Left  = _buffer["Left"]
 	Right = _buffer["Right"]
 
-	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	LeftStick  = Stick(_buffer["Left X"], _buffer["Left Y"], _buffer["Left Stick Button"])
 	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
 
 class WiiUProController(joystick):
-	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Button(), "Right Trigger":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Button(), "Right Trigger":Button(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
 
 	A =  _buffer["A"]
 	B =  _buffer["B"]
@@ -269,33 +277,49 @@ class WiiUProController(joystick):
 	ZL = _buffer["Left Trigger"]
 	ZR = _buffer["Right Trigger"]
 
+	Start =  _buffer["Start"]
+	Select = _buffer["Select"]
+	Home =   _buffer["Home"]
+
 	Up    = _buffer["Up"]
 	Down  = _buffer["Down"]
 	Left  = _buffer["Left"]
 	Right = _buffer["Right"]
 
-	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	LeftStick  = Stick(_buffer["Left X"], _buffer["Left Y"], _buffer["Left Stick Button"])
 	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
 
 class PS4Controller(joystick):
-	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
+	_buffer = { "A":Button(), "B":Button(), "X":Button(), "Y":Button(), "L":Button(), "R":Button(), "Left Trigger":Axis(), "Right Trigger":Axis(), "Start":Button(), "Select":Button(), "Home":Button(), "Up":Button(), "Down":Button(), "Left":Button(), "Right":Button(), "Left X":Axis(), "Left Y":Axis(), "Left Stick Button":Button(), "Right X":Axis(), "Right Y":Axis(), "Right Stick Button":Button()}
 
-	A =  _buffer["A"]
-	B =  _buffer["B"]
-	X =  _buffer["X"]
-	Y =  _buffer["Y"]
-	L =  _buffer["L"]
-	R =  _buffer["R"]
-	ZL = _buffer["Left Trigger"]
-	ZR = _buffer["Right Trigger"]
+	O = _buffer["A"]
+	T = _buffer["B"]
+	X = _buffer["X"]
+	S = _buffer["Y"]
+
+	L1 = _buffer["L"]
+	R1 = _buffer["R"]
+	L2 = _buffer["Left Trigger"]
+	R2 = _buffer["Right Trigger"]
+
+	Options = _buffer["Start"]
+	Share   = _buffer["Select"]
+	PS      = _buffer["Home"]
 
 	Up    = _buffer["Up"]
 	Down  = _buffer["Down"]
 	Left  = _buffer["Left"]
 	Right = _buffer["Right"]
 
-	LeftStick  = Stick(_buffer["Left X"],  _buffer["Left Y"],  _buffer["Left Stick Button"])
+	LeftStick  = Stick(_buffer["Left X"], _buffer["Left Y"], _buffer["Left Stick Button"])
 	RightStick = Stick(_buffer["Right X"], _buffer["Right Y"], _buffer["Right Stick Button"])
+
+class Accelerometer(joystick):
+	_buffer = { "X":Axis(), "Y":Axis(), "Z":Axis() }
+
+	X = _buffer["X"]
+	Y = _buffer["Y"]
+	Z = _buffer["Z"]
 
 def update(d, u):
 	for k, v in u.items():
@@ -341,6 +365,7 @@ def getDevices(includeUnsupported=True):
 					if("event" in handler):
 						path = "/dev/input/" + handler
 						controllers[path] = name
+						break
 	return controllers
 
 def getDeviceName(handler):
@@ -394,7 +419,7 @@ def getAController():
 	if(len(devices) == 1):
 		return list(devices.keys())[0]
 	else:
-		return promptForController()[0]
+		return promptForController(includeUnsupported=DEBUG_MODE)[0]
 
 def getSupportedControllers():
 	EXTENSION = ".yaml"
@@ -405,16 +430,18 @@ def getSupportedControllers():
 	return controllers
 SUPPORTED_CONTROLLERS = getSupportedControllers()
 
-
-#if((DEBUG_MODE or REGISTER_MODE) and __name__ == "__main__"):
+if(__name__ == "__main__"):
+#	print("Entering New Device Mode")
 #	js = joystick(promptForController(includeUnsupported = True)[0], getRaw = True)
 #	input("Press enter to quit.\n")
-
-if(__name__ == "__main__"):
 	print("Connecting")
-	js = WiiUProController(getAController())
-	print("Connected")
+	js = Accelerometer(getAController(), getRaw=DEBUG_MODE)
+	print("Connected on", js.path)
 	while(True):
 		js.poll()
-		print(js.LeftStick.Button.isDown())
+		print("X: {0:.3f}; Y: {0:.3f}; Z: {0:.3f} ".format(js.X.getValue(),js.Y.getValue(),js.Z.getValue()))
+#		try:
+#			print("{} @ {}".format(js.LeftStick.getMagnitude(), js.LeftStick.getAngle()))
+#		except:
+#			pass
 		time.sleep(0.01)
